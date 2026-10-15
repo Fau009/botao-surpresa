@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Botão Surpresa</title>
+<meta name="description" content="Pegadinha do botão Não Aperte: contagem regressiva, som, vibração e 10 sustos diferentes que terminam num Te peguei.">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0a0b'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23ff2e2e'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23ffd21e' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Visual único (escuro) por escolha: a pegadinha vive numa "sala" preta com um único botão proibido.
+   Acentos de perigo: vermelho e amarelo-hazard. */
+:root {
+  --bg: #0a0a0b;
+  --panel: #151518;
+  --panel-2: #1d1d21;
+  --fg: #f2f2ee;
+  --muted: #8a8a85;
+  --line: #2a2a2e;
+  --danger: #ff2e2e;
+  --danger-deep: #8e1414;
+  --hazard: #ffd21e;
+  --ok: #37d07f;
+  --display: "Anton", "Arial Black", Impact, sans-serif;
+  --body: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body);
+  overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--hazard); outline-offset: 3px; }
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px 20px; gap: 18px; }
+.screen.on { display: flex; }
+
+.eyebrow { font-size: .72rem; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--display); font-weight: 400; margin: 0; line-height: .92; letter-spacing: .01em; }
+.lead { color: var(--muted); max-width: 34ch; margin: 0; line-height: 1.5; }
+
+/* ---------- Tela do botão (é a tela inicial: nada revela a pegadinha) ---------- */
+#play { justify-content: space-between; padding-block: 8vh; }
+.warn { font-family: var(--display); font-size: clamp(1.4rem, 7vw, 2.2rem); color: var(--danger); min-height: 1.2em; letter-spacing: .02em; transition: color .15s; }
+.count-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.count-ring { position: relative; width: clamp(240px, 72vw, 320px); aspect-ratio: 1; display: grid; place-items: center; }
+.count-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; }
+.count-ring .track { fill: none; stroke: var(--line); stroke-width: 6; }
+.count-ring .bar { fill: none; stroke: var(--danger); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke .3s; }
+.the-button {
+  position: relative; width: 62%; aspect-ratio: 1; border-radius: 50%; border: none;
+  background: radial-gradient(circle at 38% 32%, #ff6a6a, var(--danger) 55%, var(--danger-deep));
+  box-shadow: 0 0 0 10px rgba(255,46,46,.12), 0 0 46px -6px var(--danger), inset 0 -10px 20px rgba(0,0,0,.4);
+  color: #fff; font-family: var(--display); font-size: clamp(1.4rem, 6.5vw, 2.1rem); line-height: 1; letter-spacing: .02em;
+  display: grid; place-items: center; padding: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.45);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.the-button:active { transform: scale(.95); }
+.count-num { font-family: var(--display); font-size: 1.1rem; color: var(--muted); letter-spacing: .04em; }
+.count-num b { color: var(--fg); font-size: 1.5rem; }
+.sub { font-size: .8rem; color: var(--muted); }
+@keyframes pulse { 50% { box-shadow: 0 0 0 16px rgba(255,46,46,.05), 0 0 70px 0 var(--danger), inset 0 -10px 20px rgba(0,0,0,.4); transform: scale(1.03); } }
+body.heat-1 { animation: flash1 1.2s steps(1) infinite; }
+body.heat-2 { animation: flash1 .6s steps(1) infinite; }
+body.heat-3 { animation: flash2 .22s steps(1) infinite; }
+@keyframes flash1 { 50% { background: #140606; } }
+@keyframes flash2 { 50% { background: #2a0000; } }
+.heat-2 .the-button { animation-duration: .8s; }
+.heat-3 .the-button { animation-duration: .4s; }
+
+/* ---------- Sustos (tela cheia) ---------- */
+#scare { padding: 0; display: none; }
+#scare.on { display: block; }
+.scr { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 28px; text-align: center; }
+.scr-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.shake { animation: shake .09s linear infinite; }
+@keyframes shake { 0%{transform:translate(0,0)} 25%{transform:translate(5px,-4px)} 50%{transform:translate(-5px,3px)} 75%{transform:translate(4px,4px)} 100%{transform:translate(-3px,-3px)} }
+.big-ico { font-size: clamp(3.5rem, 20vw, 7rem); line-height: 1; }
+.scr h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 9vw, 3rem); margin: 0; line-height: 1; }
+.scr p { margin: 0; max-width: 32ch; line-height: 1.5; }
+.scr .mono { font-family: var(--mono); font-size: clamp(.78rem, 3.4vw, .95rem); text-align: left; white-space: pre-wrap; width: min(92vw, 560px); }
+.bar-shell { width: min(80vw, 420px); height: 18px; border: 1px solid currentColor; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: currentColor; }
+/* Temas de cada susto */
+.s-azul { background: #1246c4; color: #fff; }
+.s-desligando { background: #000; color: #e8e8e8; }
+.s-atualizacao { background: #0b4a86; color: #fff; }
+.s-virus { background: #0a0a0a; color: #35ff6a; }
+.s-formatando { background: #050505; color: #d8d8d8; }
+.s-alerta { background: #c40000; color: #fff; animation: alertbg .4s steps(1) infinite; }
+@keyframes alertbg { 50% { background: #3a0000; } }
+.s-webcam { background: #050505; color: #fff; }
+.s-quebrada { background: #0d1a2b; color: #cdd9e6; }
+.s-estatica { background: #000; color: #fff; }
+.s-auto { background: #140000; color: #ff3b3b; }
+.rec { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 1rem; }
+.rec .dot { width: 12px; height: 12px; border-radius: 50%; background: #ff2e2e; animation: blink .7s steps(1) infinite; }
+@keyframes blink { 50% { opacity: .15; } }
+.eye { font-size: clamp(4rem, 24vw, 9rem); animation: look 1.2s ease-in-out infinite; }
+@keyframes look { 25%{transform:translateX(-10px)} 75%{transform:translateX(10px)} }
+.spinner { width: 46px; height: 46px; border: 5px solid rgba(255,255,255,.25); border-top-color: currentColor; border-radius: 50%; animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.auto-num { font-family: var(--display); font-size: clamp(6rem, 40vw, 16rem); line-height: .8; }
+
+/* ---------- Revelação ---------- */
+#reveal { background: var(--hazard); color: #140d00; gap: 14px; }
+#reveal .tape { width: 100%; max-width: 440px; height: 18px; border-radius: 3px; background: repeating-linear-gradient(45deg, #140d00 0 20px, var(--hazard) 20px 40px); }
+#reveal h1 { font-size: clamp(3rem, 18vw, 6.5rem); color: #140d00; }
+#reveal .grin { font-size: clamp(3.5rem, 20vw, 6rem); line-height: 1; }
+#reveal p { max-width: 30ch; margin: 0; font-weight: 500; line-height: 1.5; }
+#reveal .got { font-size: .8rem; opacity: .7; }
+.reveal-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.btn-dark { background: #140d00; color: var(--hazard); border: 0; border-radius: 12px; padding: .85rem 1.3rem; font-weight: 700; }
+.btn-ghost { background: transparent; color: #140d00; border: 2px solid #140d00; border-radius: 12px; padding: .85rem 1.3rem; font-weight: 700; }
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.heat-1, body.heat-2, body.heat-3, .s-alerta { animation: none !important; }
+  .shake { animation: none; }
+  .the-button { animation: none; }
+}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+</head>
+<body>
+
+<!-- BOTÃO (tela inicial) -->
+<section class="screen on" id="play">
+  <p class="warn" id="warn">NÃO APERTE</p>
+  <div class="count-wrap">
+    <div class="count-ring">
+      <svg viewBox="0 0 220 220"><circle class="track" cx="110" cy="110" r="100"/><circle class="bar" id="ring" cx="110" cy="110" r="100"/></svg>
+      <button class="the-button" id="the-button">NÃO<br>APERTE</button>
+    </div>
+    <p class="count-num">apertam em <b id="count">12</b>s</p>
+  </div>
+  <p class="sub" id="play-sub">só não aperta, tá? 🙂</p>
+</section>
+
+<!-- SUSTO -->
+<section class="screen" id="scare" aria-hidden="true"></section>
+
+<!-- REVELAÇÃO -->
+<section class="screen" id="reveal">
+  <div class="tape"></div>
+  <div class="grin" id="reveal-emoji">😈</div>
+  <h1>TE PEGUEI!</h1>
+  <p id="reveal-line">Era brincadeira! Seu aparelho está 100% normal — nada aconteceu de verdade.</p>
+  <p class="got">susto: <span id="reveal-name">—</span></p>
+  <div class="reveal-actions">
+    <button class="btn-dark" id="btn-again">😈 Pegar outra pessoa</button>
+  </div>
+  <p class="app-links" data-app-links style="margin-top:6px"></p>
+  <div class="tape"></div>
+</section>
+
+<canvas id="confetti"></canvas>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const S = { scare: "random", som: true, vib: true };
+  let screen = "arm", countId = null, scareTimer = null, cleanup = null, left = 0;
+
+  /* ---------- Áudio (Web Audio, gerado na hora) ---------- */
+  let ctx = null, master = null, droneOsc = null, droneGain = null;
+  const live = []; // nós longos a parar no fim do susto
+  function initAudio() {
+    if (ctx) { ctx.resume && ctx.resume(); return; }
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
+    } catch (e) { ctx = null; }
+  }
+  const now = () => ctx ? ctx.currentTime : 0;
+  function tone(freq, dur, { type = "square", gain = 0.2, slideTo = null, when = 0 } = {}) {
+    if (!ctx || !S.som) return;
+    const t = now() + when, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noiseNode(dur, { gain = 0.3, lp = 9000, hp = 0, when = 0, loop = false } = {}) {
+    if (!ctx || !S.som) return null;
+    const t = now() + when, len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = loop;
+    let node = src;
+    if (lp) { const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; node.connect(f); node = f; }
+    if (hp) { const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp; node.connect(f); node = f; }
+    const g = ctx.createGain(); g.gain.value = gain; node.connect(g).connect(master);
+    src.start(t); if (!loop) src.stop(t + dur + 0.02);
+    return { src, g };
+  }
+  function siren(dur) {
+    if (!ctx || !S.som) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sawtooth";
+    const t0 = now(); g.gain.value = 0.18; o.connect(g).connect(master);
+    for (let t = 0; t < dur; t += 0.6) { o.frequency.setValueAtTime(600, t0 + t); o.frequency.linearRampToValueAtTime(950, t0 + t + 0.3); o.frequency.linearRampToValueAtTime(600, t0 + t + 0.6); }
+    o.start(t0); o.stop(t0 + dur); live.push({ src: o });
+  }
+  function stopLive() { while (live.length) { try { live.pop().src.stop(); } catch (e) {} } }
+  function vibrate(p) { if (S.vib) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} } }
+
+  /* ---------- Sustos ---------- */
+  const scares = [
+    { id: "azul", nome: "Tela azul", emoji: "💙", dur: 3200, vib: [400, 120, 400],
+      sound() { tone(140, 0.5, { type: "sawtooth", gain: 0.22 }); tone(90, 0.8, { type: "square", gain: 0.18, when: 0.1 }); },
+      build(el) { el.className = "scr s-azul shake"; el.innerHTML =
+        `<div style="font-size:clamp(3rem,16vw,6rem)">:(</div>
+         <h2 style="font-size:clamp(1.3rem,6vw,2rem)">Seu dispositivo encontrou um problema e precisa reiniciar.</h2>
+         <p>Estamos só coletando algumas informações de erro e já reiniciamos para você.</p>
+         <p style="font-family:var(--mono);font-size:1.4rem"><span id="azpct">0</span>% concluído</p>
+         <p style="font-family:var(--mono);opacity:.8">Código: NAO_DEVIA_TER_APERTADO</p>`;
+        let n = 0; const t = setInterval(() => { n = Math.min(100, n + Math.floor(Math.random() * 18)); const e = $("#azpct"); if (e) e.textContent = n; }, 300);
+        return () => clearInterval(t); } },
+
+    { id: "desligando", nome: "Desligando", emoji: "⚫", dur: 3000, vib: [600],
+      sound() { tone(420, 0.9, { type: "sine", gain: 0.25, slideTo: 40 }); },
+      build(el) { el.className = "scr s-desligando"; el.innerHTML = `<div class="spinner"></div><h2 style="font-weight:400;font-family:var(--body);font-size:clamp(1.2rem,5vw,1.6rem)">Desligando…</h2>`;
+        return null; } },
+
+    { id: "atualizacao", nome: "Atualização do sistema", emoji: "🔄", dur: 3600, vib: [200, 100, 200],
+      sound() { tone(660, 0.25, { type: "sine", gain: 0.2 }); tone(880, 0.3, { type: "sine", gain: 0.2, when: 0.25 }); },
+      build(el) { el.className = "scr s-atualizacao"; el.innerHTML =
+        `<div class="spinner"></div>
+         <h2 style="font-weight:400;font-family:var(--body);font-size:clamp(1.2rem,5vw,1.7rem)">Configurando atualização <span id="upn">1</span> de 137</h2>
+         <p style="font-size:1.3rem"><span id="uppct">0</span>% concluído</p>
+         <p>Não desligue o dispositivo. Isso pode levar algum tempinho… ou a vida toda.</p>`;
+        let n = 0; const t = setInterval(() => { n = Math.min(100, n + Math.floor(Math.random() * 7)); const p = $("#uppct"), u = $("#upn"); if (p) p.textContent = n; if (u) u.textContent = 1 + Math.floor(n / 10); }, 280);
+        return () => clearInterval(t); } },
+
+    { id: "virus", nome: "Baixando vírus", emoji: "🦠", dur: 3600, vib: [80, 60, 80, 60, 80, 60, 300],
+      sound() { for (let i = 0; i < 6; i++) tone(1100 - i * 60, 0.09, { type: "square", gain: 0.16, when: i * 0.18 }); noiseNode(0.5, { gain: 0.12, hp: 2000, when: 1.2 }); },
+      build(el) { el.className = "scr s-virus"; el.innerHTML = `<div class="mono" id="vlog"></div><div class="bar-shell" style="color:#35ff6a"><div class="bar-fill" id="vbar"></div></div>`;
+        const lines = ["> conexão estabelecida com servidor desconhecido…", "> baixando trojan_super_perigoso.exe", "> baixando keylogger.dll", "> baixando MAIS_virus.zip (666 MB)", "> acessando contatos…", "> espalhando para seus amigos…"];
+        const log = $("#vlog"), bar = $("#vbar"); let i = 0, pct = 0;
+        const t = setInterval(() => { if (i < lines.length) { log.textContent += lines[i++] + "\n"; } pct = Math.min(100, pct + 9); if (bar) bar.style.width = pct + "%"; }, 420);
+        return () => clearInterval(t); } },
+
+    { id: "formatando", nome: "Formatando o disco", emoji: "🗑️", dur: 3600, vib: [100, 80, 100, 80, 400],
+      sound() { for (let i = 0; i < 8; i++) tone(300, 0.06, { type: "square", gain: 0.14, when: i * 0.22 }); },
+      build(el) { el.className = "scr s-formatando shake"; el.innerHTML =
+        `<h2 style="font-weight:400;font-family:var(--body);font-size:clamp(1.2rem,5vw,1.7rem)">Formatando disco (C:)</h2>
+         <div class="bar-shell" style="color:#d8d8d8"><div class="bar-fill" id="fbar"></div></div>
+         <div class="mono" id="flog" style="height:4.5em;overflow:hidden"></div>`;
+        const files = ["apagando fotos_da_viagem.jpg", "apagando trabalho_final.docx", "apagando segredos.txt", "apagando memes/", "apagando tudo_mesmo.zip", "apagando a pasta Downloads", "apagando sua paz de espírito"];
+        const bar = $("#fbar"), log = $("#flog"); let pct = 0, i = 0;
+        const t = setInterval(() => { pct = Math.min(100, pct + 8); if (bar) bar.style.width = pct + "%"; if (log) log.textContent = files[i % files.length] + "…"; i++; }, 320);
+        return () => clearInterval(t); } },
+
+    { id: "alerta", nome: "Alerta vermelho", emoji: "🚨", dur: 3000, vib: [300, 150, 300, 150, 300],
+      sound() { siren(2.8); },
+      build(el) { el.className = "scr s-alerta"; el.innerHTML =
+        `<div class="big-ico">⚠️</div><h2 style="font-size:clamp(2rem,11vw,3.5rem)">ALERTA</h2>
+         <p style="font-size:1.1rem;font-weight:600">Atividade não autorizada detectada:<br>você apertou o que não devia.</p>`;
+        return null; } },
+
+    { id: "webcam", nome: "Câmera invadida", emoji: "📷", dur: 3200, vib: [500],
+      sound() { noiseNode(0.05, { gain: 0.3, hp: 1000 }); tone(1400, 0.08, { type: "sine", gain: 0.2, when: 0.08 }); tone(500, 0.3, { gain: 0.15, when: 0.4 }); },
+      build(el) { el.className = "scr s-webcam"; el.innerHTML =
+        `<div class="rec"><span class="dot"></span> REC &nbsp;•&nbsp; AO VIVO</div>
+         <div class="eye">👁️</div>
+         <h2 style="font-size:clamp(1.4rem,7vw,2.2rem)">Sorria!</h2>
+         <p>Acessando a câmera frontal… <span id="wpct">0</span>%</p>`;
+        let n = 0; const t = setInterval(() => { n = Math.min(100, n + 11); const e = $("#wpct"); if (e) e.textContent = n; }, 240);
+        return () => clearInterval(t); } },
+
+    { id: "quebrada", nome: "Tela quebrada", emoji: "💥", dur: 3000, vib: [500, 80, 120],
+      sound() { noiseNode(0.25, { gain: 0.35, hp: 2500 }); noiseNode(0.5, { gain: 0.15, hp: 1200, when: 0.05 }); tone(220, 0.2, { type: "square", gain: 0.12 }); },
+      build(el) { el.className = "scr s-quebrada"; el.innerHTML = `<canvas class="scr-canvas" id="crack"></canvas>`;
+        const cv = $("#crack"), c = cv.getContext("2d"), dpr = Math.min(devicePixelRatio || 1, 2);
+        cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; c.scale(dpr, dpr);
+        const cx = innerWidth * (0.3 + Math.random() * 0.4), cy = innerHeight * (0.3 + Math.random() * 0.4);
+        c.strokeStyle = "rgba(220,235,255,.9)"; c.lineWidth = 2;
+        const rays = 11;
+        for (let r = 0; r < rays; r++) { let a = (r / rays) * Math.PI * 2 + Math.random() * 0.3, x = cx, y = cy; c.beginPath(); c.moveTo(x, y);
+          for (let seg = 0; seg < 7; seg++) { a += (Math.random() - 0.5) * 0.7; const d = 40 + Math.random() * 90; x += Math.cos(a) * d; y += Math.sin(a) * d; c.lineTo(x, y); } c.stroke(); }
+        c.lineWidth = 1; c.strokeStyle = "rgba(200,220,255,.6)";
+        for (let ring = 20; ring < 120; ring += 28) { c.beginPath(); for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.5) { const rr = ring + Math.random() * 10, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; a === 0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); }
+        const t = setTimeout(() => { const h = document.createElement("div"); h.className = "scr"; h.style.cssText = "pointer-events:none"; h.innerHTML = `<h2 style="font-size:clamp(1.6rem,8vw,2.4rem);text-shadow:0 2px 10px #000">Ops… 😬</h2>`; el.appendChild(h); }, 500);
+        return () => clearTimeout(t); } },
+
+    { id: "estatica", nome: "Sinal perdido", emoji: "📺", dur: 2800, vib: [700],
+      sound() { const n = noiseNode(2.6, { gain: 0.14, loop: true }); if (n) live.push(n); tone(900, 0.4, { type: "sine", gain: 0.08 }); },
+      build(el) { el.className = "scr s-estatica"; el.innerHTML = `<canvas class="scr-canvas" id="snow"></canvas><h2 style="position:relative;background:#000;padding:.2em .6em;border:2px solid #fff;font-size:clamp(1.4rem,8vw,2.4rem)">SEM SINAL</h2>`;
+        const cv = $("#snow"), c = cv.getContext("2d"); let raf;
+        const fit = () => { cv.width = Math.floor(innerWidth / 3); cv.height = Math.floor(innerHeight / 3); };
+        fit();
+        const draw = () => { const img = c.createImageData(cv.width, cv.height), d = img.data; for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } c.putImageData(img, 0, 0); raf = requestAnimationFrame(draw); };
+        cv.style.imageRendering = "pixelated"; draw();
+        return () => cancelAnimationFrame(raf); } },
+
+    { id: "autodestruicao", nome: "Autodestruição", emoji: "💣", dur: 4200, vib: [120, 400, 120, 400, 120, 400, 600],
+      sound() { [0, 0.8, 1.6].forEach((w, i) => tone(660, 0.18, { type: "square", gain: 0.2, when: w })); tone(1046, 0.5, { type: "square", gain: 0.22, when: 2.4 }); noiseNode(0.8, { gain: 0.3, lp: 400, when: 2.9 }); },
+      build(el) { el.className = "scr s-auto"; el.innerHTML = `<p style="font-family:var(--mono);font-size:1.1rem;letter-spacing:.2em">AUTODESTRUIÇÃO EM</p><div class="auto-num" id="anum">3</div><p style="opacity:.8">afaste-se do dispositivo…</p>`;
+        let n = 3; const num = $("#anum");
+        const t = setInterval(() => { n--; if (n > 0) { if (num) num.textContent = n; } else { clearInterval(t); if (num) { num.textContent = "💥"; } el.classList.add("shake"); const h = el.querySelector("p:last-child"); if (h) h.textContent = "brincadeira! 😅"; } }, 800);
+        return () => clearInterval(t); } },
+  ];
+  const byId = id => scares.find(s => s.id === id);
+
+  /* ---------- Navegação ---------- */
+  function show(name) {
+    screen = name;
+    document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === name));
+    $("#scare").setAttribute("aria-hidden", name === "scare" ? "false" : "true");
+    document.body.classList.remove("heat-1", "heat-2", "heat-3");
+  }
+
+  /* ---------- Contagem regressiva ---------- */
+  const RING_LEN = 2 * Math.PI * 100;
+  $("#ring").style.strokeDasharray = RING_LEN;
+  function startCountdown() {
+    left = 12;
+    paintCount();
+    startDrone();
+    clearInterval(countId);
+    countId = setInterval(() => {
+      left--;
+      paintCount();
+      if (left <= 0) { clearInterval(countId); fire(); return; }
+      // tique que sobe de tom e volume conforme o tempo acaba
+      const urg = (12 - left) / 12;
+      tone(500 + urg * 500, 0.06, { type: "square", gain: 0.05 + urg * 0.18 });
+      if (left <= 3) vibrate(60);
+      if (droneGain) droneGain.gain.setTargetAtTime(0.02 + urg * 0.1, now(), 0.3);
+    }, 1000);
+  }
+  function paintCount() {
+    $("#count").textContent = Math.max(0, left);
+    const ring = $("#ring");
+    ring.style.strokeDashoffset = RING_LEN * (1 - left / 12);
+    const warns = { 12: "NÃO APERTE", 9: "Sério, não aperta", 6: "Tá difícil, né?", 4: "VAI, APERTA", 2: "ÚLTIMA CHANCE" };
+    if (warns[left]) $("#warn").textContent = warns[left];
+    const subs = { 12: "só não aperta, tá? 🙂", 8: "eu sei que você quer…", 5: "ninguém vai saber 👀", 3: "aperta logo!!" };
+    if (subs[left]) $("#play-sub").textContent = subs[left];
+    document.body.classList.toggle("heat-1", left <= 8 && left > 5);
+    document.body.classList.toggle("heat-2", left <= 5 && left > 2);
+    document.body.classList.toggle("heat-3", left <= 2);
+    if (left <= 2) { $("#warn").style.color = "#fff"; ring && (ring.style.stroke = "#fff"); }
+    else { $("#warn").style.color = ""; ring && (ring.style.stroke = ""); }
+  }
+  function startDrone() {
+    if (!ctx || !S.som || droneOsc) return;
+    droneOsc = ctx.createOscillator(); droneGain = ctx.createGain();
+    droneOsc.type = "sawtooth"; droneOsc.frequency.value = 55;
+    droneGain.gain.value = 0.02; droneOsc.connect(droneGain).connect(master); droneOsc.start();
+  }
+  function stopDrone() { if (droneOsc) { try { droneOsc.stop(); } catch (e) {} droneOsc = null; droneGain = null; } }
+
+  /* ---------- Disparar o susto ---------- */
+  function fire(forceId) {
+    initAudio();
+    clearInterval(countId); stopDrone();
+    document.body.classList.remove("heat-1", "heat-2", "heat-3");
+    const pick = forceId ? byId(forceId)
+      : (S.scare !== "random" ? byId(S.scare) : scares[Math.floor(Math.random() * scares.length)]);
+    const sec = $("#scare");
+    sec.innerHTML = '<div class="scrbox"></div>';
+    const el = sec.querySelector(".scrbox");
+    show("scare");
+    cleanup = pick.build(el) || null;
+    try { pick.sound(); } catch (e) {}
+    vibrate(pick.vib);
+    clearTimeout(scareTimer);
+    scareTimer = setTimeout(() => reveal(pick), pick.dur);
+  }
+
+  /* ---------- Revelação ---------- */
+  function reveal(pick) {
+    if (cleanup) { try { cleanup(); } catch (e) {} cleanup = null; }
+    stopLive(); clearTimeout(scareTimer);
+    $("#reveal-name").textContent = pick ? pick.nome : "—";
+    $("#reveal-emoji").textContent = pick ? pick.emoji : "😈";
+    show("reveal");
+    vibrate([60, 40, 60, 40, 120]);
+    tone(523, 0.12, { type: "square", gain: 0.2 }); tone(659, 0.12, { type: "square", gain: 0.2, when: 0.12 }); tone(784, 0.2, { type: "square", gain: 0.22, when: 0.24 });
+    confetti();
+  }
+
+  /* ---------- Confete ---------- */
+  const cv = $("#confetti"), cctx = cv.getContext("2d");
+  let confRaf = null;
+  function confetti() {
+    cancelAnimationFrame(confRaf);
+    cv.width = innerWidth; cv.height = innerHeight;
+    const cols = ["#ff2e2e", "#0a0a0b", "#37d07f", "#2e8bff", "#ff7ad1", "#ffffff"];
+    const N = reduce ? 40 : 140;
+    const bits = Array.from({ length: N }, () => ({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5, r: 4 + Math.random() * 7, vy: 2.5 + Math.random() * 4, vx: (Math.random() - 0.5) * 3, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, c: cols[Math.floor(Math.random() * cols.length)] }));
+    let frames = 0;
+    const tick = () => {
+      cctx.clearRect(0, 0, cv.width, cv.height);
+      bits.forEach(b => { b.x += b.vx; b.y += b.vy; b.rot += b.vr; cctx.save(); cctx.translate(b.x, b.y); cctx.rotate(b.rot); cctx.fillStyle = b.c; cctx.fillRect(-b.r / 2, -b.r / 2, b.r, b.r * 0.6); cctx.restore(); });
+      frames++;
+      if (frames < 220 && screen === "reveal") confRaf = requestAnimationFrame(tick);
+      else cctx.clearRect(0, 0, cv.width, cv.height);
+    };
+    tick();
+  }
+
+  /* ---------- Tela inicial: só o botão proibido ---------- */
+  // Nada de menu nem aviso: quem recebe o celular não pode saber que é uma pegadinha.
+  // A contagem (e o som) começam no primeiro toque — o que também destrava o áudio,
+  // que o navegador só libera depois de uma interação.
+  function resetPlay() {
+    left = 12; $("#count").textContent = 12;
+    $("#ring").style.strokeDashoffset = 0; $("#ring").style.stroke = "";
+    $("#warn").textContent = "NÃO APERTE"; $("#warn").style.color = "";
+    $("#play-sub").textContent = "só não aperta, tá? 🙂";
+    document.body.classList.remove("heat-1", "heat-2", "heat-3");
+  }
+  let started = false;
+  function begin() { if (started || screen !== "play") return; started = true; initAudio(); startCountdown(); }
+  addEventListener("pointerdown", begin, { capture: true });
+  addEventListener("keydown", begin, { capture: true });
+
+  $("#the-button").addEventListener("click", () => { if (screen === "play") fire(); });
+  $("#btn-again").addEventListener("click", () => { started = false; show("play"); resetPlay(); });
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  addEventListener("resize", () => { if (screen === "reveal") { cv.width = innerWidth; cv.height = innerHeight; } });
+
+  // Hooks para os testes automatizados
+  window.__prank = { fire, reveal, show, begin, get screen() { return screen; }, get left() { return left; }, get started() { return started; }, ids: scares.map(s => s.id) };
+
+  // Abre direto no botão
+  show("play"); resetPlay();
+})();
+</script>
+<script src="pwa.js" defer></script>
+</body>
+</html>
